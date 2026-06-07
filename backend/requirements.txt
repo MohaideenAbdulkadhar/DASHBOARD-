@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg[binary]
+redis
+pydantic>=2.0
+requests
+python-multipart
+requests==2.31.0

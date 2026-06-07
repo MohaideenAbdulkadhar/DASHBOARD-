@@ -1,0 +1,35 @@
+# Local Environment Configuration Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python Build Artifacts & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+.htmlcov/
+
+# Node/Next.js Build Outputs & Dependencies
+node_modules/
+.npm
+.next/
+out/
+build/
+.pnpm-store/
+
+# System / IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
