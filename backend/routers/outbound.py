@@ -7,6 +7,7 @@ import json
 import redis
 import os
 from database import get_db
+from datetime import datetime
 from models import Campaign, Lead, Call
 
 router = APIRouter()
@@ -110,6 +111,23 @@ async def get_campaign_metrics(campaign_id: int, db: Session = Depends(get_db)):
     total_processed = completed + failed
     progress_percentage = (total_processed / total_leads * 100) if total_leads > 0 else 0
 
+    # NEW: Fetch the 4 most recently active call events to feed the visual stream
+    recent_events = db.query(Call, Lead.name) \
+        .join(Lead, Call.phone_number == Lead.phone_number) \
+        .filter(Call.campaign_id == campaign_id) \
+        .order_by(Call.created_at.desc()) \
+        .limit(4).all()
+
+    timeline = []
+    for call, name in recent_events:
+        timeline.append({
+            "id": call.id,
+            "name": name,
+            "phone": call.phone_number,
+            "status": call.status,
+            "time": call.created_at.strftime("%H:%M:%S") if call.created_at else None
+        })
+
     return {
         "campaign_id": campaign_id,
         "total_leads": total_leads,
@@ -120,7 +138,8 @@ async def get_campaign_metrics(campaign_id: int, db: Session = Depends(get_db)):
             "in_progress": in_progress,
             "completed": completed,
             "failed": failed
-        }
+        },
+        "timeline": timeline
     }
 
 
@@ -185,8 +204,21 @@ async def get_lead_call_details(lead_id: int, db: Session = Depends(get_db)):
             "call_status": "pending",
             "transcript": "This lead is currently queued or awaiting automated worker execution.",
             "ai_summary": "—",
-            "recording_url": None
+            "recording_url": None,
+            "duration_display": "—",
+            "formatted_time": "Awaiting connection..."
         }
+
+    call_seconds = call_record.duration or 0
+    if call_seconds > 0:
+        minutes = call_seconds // 60
+        seconds = call_seconds % 60
+        duration_str = f"{minutes}m {seconds}s"
+    else:
+        duration_str = "0m 0s" if call_record.status == "completed" else "—"
+
+    timestamp_source = call_record.ended_at or call_record.started_at or call_record.created_at
+    formatted_timestamp = timestamp_source.strftime("%B %d, %Y at %I:%M %p") if timestamp_source else "Unknown"
 
     return {
         "name": lead.name,
@@ -195,6 +227,8 @@ async def get_lead_call_details(lead_id: int, db: Session = Depends(get_db)):
         "call_status": call_record.status,
         "transcript": call_record.transcript or "Transcript generation underway...",
         "ai_summary": call_record.ai_summary or "Parsing conversation details...",
-        "recording_url": call_record.recording_url
+        "recording_url": call_record.recording_url,
+        "duration_display": duration_str,
+        "formatted_time": formatted_timestamp
     }
 

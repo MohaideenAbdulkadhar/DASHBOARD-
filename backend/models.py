@@ -32,6 +32,9 @@ class Call(Base):
     transcript = Column(Text, nullable=True)
     ai_summary = Column(Text, nullable=True)
     recording_url = Column(Text, nullable=True)
+    duration = Column(Integer, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

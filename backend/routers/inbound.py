@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -77,35 +78,49 @@ async def handle_vapi_inbound(payload: dict, db: Session = Depends(get_db)):
 
     # 2. Handle End of Call Webhook (Save logs, transcripts, costs)
     elif event_type in ["endOfCallReport", "end-of-call-report"]:
-        call_id = message.get("call", {}).get("id")
+        call_obj = message.get("call", {})
+        call_id = call_obj.get("id")
         transcript = message.get("transcript", "")
+        raw_duration = call_obj.get("duration")
+        started_at_raw = call_obj.get("startedAt")
+        ended_at_raw = call_obj.get("endedAt")
         analysis = message.get("analysis", {})
         summary = analysis.get("summary", "No summary generated.")
         recording_url = payload.get("recordingUrl") or message.get("recordingUrl", "")
 
+        def parse_iso_timestamp(value: str):
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except Exception:
+                return None
+
+        started_at = parse_iso_timestamp(started_at_raw)
+        ended_at = parse_iso_timestamp(ended_at_raw)
+        duration_value = int(raw_duration) if raw_duration is not None else None
+
         existing_call = db.query(Call).filter(Call.telephony_call_id == call_id).first()
+        if not existing_call:
+            customer_phone = message.get("customer", {}).get("number")
+            existing_call = db.query(Call).filter(
+                Call.phone_number == customer_phone,
+                Call.status == "ringing"
+            ).first()
+
         if existing_call:
             existing_call.status = "completed"
             existing_call.transcript = transcript
             existing_call.ai_summary = summary
             existing_call.recording_url = recording_url
+            if duration_value is not None:
+                existing_call.duration = duration_value
+            if started_at is not None:
+                existing_call.started_at = started_at
+            if ended_at is not None:
+                existing_call.ended_at = ended_at
             db.commit()
-            return {"status": "success", "message": "Call log synchronized successfully."}
-
-        customer_phone = message.get("customer", {}).get("number")
-        existing_call_by_phone = db.query(Call).filter(
-            Call.phone_number == customer_phone,
-            Call.status == "ringing"
-        ).first()
-
-        if existing_call_by_phone:
-            existing_call_by_phone.telephony_call_id = call_id
-            existing_call_by_phone.status = "completed"
-            existing_call_by_phone.transcript = transcript
-            existing_call_by_phone.ai_summary = summary
-            existing_call_by_phone.recording_url = recording_url
-            db.commit()
-            return {"status": "success", "message": "Call log synchronized via phone fallback."}
+            return {"status": "success", "message": "Live carrier telemetry updated successfully."}
 
         return {"status": "ignored", "message": "No matching active call found in platform database."}
 

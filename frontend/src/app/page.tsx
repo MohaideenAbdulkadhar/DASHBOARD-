@@ -11,6 +11,15 @@ interface MetricsData {
     completed: number;
     failed: number;
   };
+  timeline?: TimelineEvent[];
+}
+
+interface TimelineEvent {
+  id: number;
+  name: string;
+  phone: string;
+  status: string;
+  time: string;
 }
 
 interface LeadDetail {
@@ -243,13 +252,31 @@ export default function TelemetryControlDashboard() {
 
         <div style={{ background: '#111827', border: '1px solid #1f2937', padding: '2rem', borderRadius: '16px' }}>
           <h2 style={{ fontSize: '1.25rem', margin: '0 0 1rem 0' }}>Engine Telemetry Streams</h2>
-          <div style={{ background: '#020617', borderRadius: '8px', padding: '1rem', fontFamily: 'monospace', fontSize: '0.85rem', minHeight: '180px', maxHeight: '180px', overflowY: 'auto', border: '1px solid #1e293b' }}>
-            {logs.length === 0 ? (
-              <div style={{ color: '#334155', textAlign: 'center', marginTop: '3.5rem' }}>Awaiting pipeline instructions...</div>
+          <div style={{ background: '#020617', borderRadius: '8px', padding: '1rem', minHeight: '260px', maxHeight: '260px', overflowY: 'auto', border: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {!metrics.timeline || metrics.timeline.length === 0 ? (
+              <div style={{ color: '#334155', textAlign: 'center', marginTop: '5.5rem' }}>Awaiting pipeline instructions...</div>
             ) : (
-              logs.map((log, index) => (
-                <div key={index} style={{ color: '#38bdf8', marginBottom: '4px' }}>{log}</div>
-              ))
+              metrics.timeline.map((event) => {
+                const statusColor =
+                  event.status === 'completed' ? '#10b981' :
+                  event.status === 'in-progress' ? '#3b82f6' :
+                  event.status === 'ringing' ? '#f59e0b' : '#ef4444';
+
+                return (
+                  <div key={event.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', padding: '0.75rem 1rem', borderRadius: '8px', borderLeft: `4px solid ${statusColor}`, transition: 'all 0.3s ease' }}>
+                    <div>
+                      <div style={{ fontWeight: '600', fontSize: '0.9rem', color: '#f8fafc' }}>{event.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>{event.phone}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: statusColor, background: 'rgba(15, 23, 42, 0.6)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: `1px solid ${statusColor}` }}>
+                        {event.status}
+                      </span>
+                      <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '0.25rem', fontFamily: 'monospace' }}>{event.time}</div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -344,61 +371,121 @@ export default function TelemetryControlDashboard() {
         </div>
       </div>
 
-      {drawerOpen && selectedLead && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.75)', display: 'flex', alignItems: 'flex-end', zIndex: 1000 }}>
-          <div style={{ background: '#111827', width: '100%', maxWidth: '600px', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', padding: '2rem', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.5)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.5rem', margin: 0, fontWeight: '700' }}>{selectedLead.name}</h3>
-              <button onClick={closeDrawer} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+      {selectedLead && (
+        <div
+          onClick={() => setSelectedLead(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(2,6,23,0.6)',
+            backdropFilter: 'blur(8px) brightness(0.7)',
+            zIndex: 1000,
+            padding: '2rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '720px',
+              background: 'rgba(17,24,39,0.9)',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              boxShadow: '0 20px 50px rgba(2,6,23,0.6)',
+              color: '#e6eef8',
+              maxHeight: '86vh',
+              overflowY: 'auto',
+              border: '1px solid rgba(255,255,255,0.04)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800 }}>{selectedLead.name || 'Lead Details'}</h3>
+                <div style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.25rem' }}>{selectedLead.phone_number}</div>
+
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr', 
+                  gap: '1rem', 
+                  background: '#1e293b', 
+                  padding: '0.75rem 1rem', 
+                  borderRadius: '8px',
+                  marginTop: '0.5rem',
+                  border: '1px solid #334155'
+                }}>
+                  <div>
+                    <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dial Timestamp</span>
+                    <span style={{ fontSize: '0.85rem', color: '#cbd5e1', fontWeight: '500' }}>{selectedLead.formatted_time || 'Awaiting connection...'}</span>
+                  </div>
+                  <div>
+                    <span style={{ display: 'block', fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Call Duration</span>
+                    <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: '600' }}>{selectedLead.duration_display || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedLead(null)}
+                aria-label='Close'
+                style={{
+                  background: '#1e293b',
+                  border: 'none',
+                  color: '#94a3b8',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+              >
+                ×
+              </button>
             </div>
 
-            <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '600' }}>Phone Number</span>
-                <div style={{ color: '#f8fafc', fontSize: '1rem', marginTop: '0.25rem', fontFamily: 'monospace' }}>{selectedLead.phone_number}</div>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
               <div>
-                <span style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '600' }}>Call Status</span>
-                <div style={{ marginTop: '0.25rem' }}>
-                  <span style={{ display: 'inline-block', background: getStatusColor(selectedLead.call_status), color: '#fff', padding: '0.35rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '600' }}>
-                    {selectedLead.call_status || 'pending'}
+                <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 700 }}>Call Status</div>
+                <div style={{ marginTop: '0.35rem' }}>
+                  <span style={{ display: 'inline-block', background: getStatusColor(selectedLead.call_status || selectedLead.status || 'pending'), color: '#fff', padding: '0.35rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    {selectedLead.call_status || selectedLead.status || 'pending'}
                   </span>
                 </div>
               </div>
+              <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: '0.85rem' }}>
+                {/* Reserved for future meta info like timestamps or call duration */}
+              </div>
             </div>
 
-            {selectedLead.ai_summary && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ color: '#94a3b8', fontSize: '0.875rem', fontWeight: '600', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>AI Summary</h4>
-                <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', color: '#cbd5e1', lineHeight: '1.6' }}>
-                  {selectedLead.ai_summary}
-                </div>
-              </div>
-            )}
+            <hr style={{ border: 'none', height: '1px', background: 'rgba(255,255,255,0.03)', margin: '1rem 0' }} />
 
-            {selectedLead.transcript && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ color: '#94a3b8', fontSize: '0.875rem', fontWeight: '600', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Full Transcript</h4>
-                <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', color: '#cbd5e1', lineHeight: '1.6', maxHeight: '300px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                  {selectedLead.transcript}
-                </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>AI Executive Summary</h4>
+              <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', color: '#cbd5e1', lineHeight: 1.6 }}>
+                {selectedLead.ai_summary || '—'}
               </div>
-            )}
+            </div>
 
             {selectedLead.recording_url && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ color: '#94a3b8', fontSize: '0.875rem', fontWeight: '600', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Recording</h4>
-                <a href={selectedLead.recording_url} target='_blank' rel='noopener noreferrer' style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '600' }}>
-                  → Open recording in new tab
-                </a>
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Call Audio Recording</h4>
+                <div style={{ background: '#0f172a', padding: '0.75rem', borderRadius: '8px' }}>
+                  <audio controls src={selectedLead.recording_url} style={{ width: '100%' }} />
+                </div>
               </div>
             )}
 
-            {!selectedLead.transcript && !selectedLead.ai_summary && !selectedLead.recording_url && (
-              <div style={{ color: '#475569', textAlign: 'center', padding: '2rem 0' }}>
-                Call is still processing or has not started yet.
+            <div style={{ marginBottom: '0.5rem' }}>
+              <h4 style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 0.5rem 0' }}>Conversation Transcript</h4>
+              <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', color: '#cbd5e1', lineHeight: 1.6, maxHeight: '48vh', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                {selectedLead.transcript || 'Transcript not available.'}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
